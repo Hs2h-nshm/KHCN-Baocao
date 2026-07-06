@@ -1,0 +1,8 @@
+# Cấu hình Supabase CLI cho project này.
+# push-report chỉ xác thực bằng header x-agent-secret (KHÔNG dùng user JWT) → phải TẮT verify_jwt,
+# nếu không Supabase chặn ở tầng JWT trước khi code hàm chạy (agent nhận 401 dù gửi đúng secret).
+# Deploy bằng Dashboard: vào Edge Functions → push-report → Settings → tắt "Verify JWT".
+project_id = "jpomsgynbjvoxotppxqy"
+
+[functions.push-report]
+verify_jwt = false

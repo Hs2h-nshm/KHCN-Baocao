@@ -1,14 +1,14 @@
 // =====================================================================
 //  Edge Function: push-report
 //  OpenClaw (agent) cào dữ liệu từ link → POST vào đây để merge lên app_state.
-//  Bảo mật: gác bằng header 'x-agent-secret' == AGENT_SECRET (secret riêng).
-//  service_role NẰM TRONG hàm này (Supabase tự cấp qua env), KHÔNG lộ ra ngoài.
-//
-//  Deploy: Supabase → Edge Functions → Create function tên "push-report" → dán file này → Deploy.
-//  Secret: Edge Functions → Manage secrets → thêm AGENT_SECRET = <chuỗi bí mật anh tự đặt>.
-//  Gọi:  POST https://<project-ref>.functions.supabase.co/push-report
-//        Headers: x-agent-secret: <AGENT_SECRET> ; Content-Type: application/json
-//        Body: JSON giống agent/mau_pushReport.json (namHoc, periodMode, periodValue, snaps, cls, mon, num)
+//  Bảo mật: gác bằng header 'x-agent-secret' == AGENT_SECRET. service_role ẩn trong hàm.
+//  ⚠️ Deploy: TẮT "Verify JWT" cho function này (Dashboard → Edge Functions → push-report →
+//     Settings → Verify JWT = off) HOẶC dùng supabase/config.toml (verify_jwt=false) khi deploy CLI,
+//     vì hàm chỉ xác thực bằng x-agent-secret, không dùng user JWT.
+//  Secret: Edge Functions → Manage secrets → AGENT_SECRET = <chuỗi bí mật>.
+//  Gọi: POST https://<project-ref>.functions.supabase.co/push-report
+//       Headers: x-agent-secret: <AGENT_SECRET> ; Content-Type: application/json
+//       Body: JSON giống agent/mau_pushReport.json
 // =====================================================================
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -19,14 +19,19 @@ const VALID_MON_ST  = ["—", "Đã chấm", "Chấm thiếu", "Chưa chấm"];
 const VALID_MANG    = ["canvas", "vo"];
 const VALID_NUMKIND = ["lead", "dugio"];
 
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "content-type, x-agent-secret, authorization",
+};
 const json = (o: unknown, status = 200) =>
-  new Response(JSON.stringify(o), { status, headers: { "Content-Type": "application/json" } });
+  new Response(JSON.stringify(o), { status, headers: { "Content-Type": "application/json", ...CORS } });
 
 const numOk = (v: unknown) =>
   v === "" || v === undefined || v === null ||
   (typeof v === "number" && v >= 0) || /^\d+$/.test(String(v));
 
-function validate(body: any) {
+function validate(body: any): string[] {
   const errors: string[] = [];
   const snaps = body.snaps || {};
   for (const tid of Object.keys(snaps)) {
@@ -60,6 +65,7 @@ function validate(body: any) {
 
 Deno.serve(async (req) => {
   try {
+    if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
     if (req.method !== "POST") return json({ ok: false, error: "Chỉ nhận POST" }, 405);
     if (req.headers.get("x-agent-secret") !== Deno.env.get("AGENT_SECRET"))
       return json({ ok: false, error: "Sai mã agent" }, 401);
@@ -68,28 +74,52 @@ Deno.serve(async (req) => {
     const errors = validate(body);
     if (errors.length) return json({ ok: false, error: "Payload không hợp lệ", errors }, 400);
 
-    const sb = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     const { data: row, error: readErr } = await sb.from("app_state").select("data").eq("id", 1).single();
     if (readErr) return json({ ok: false, error: "Đọc app_state lỗi: " + readErr.message }, 500);
     const d = row?.data ?? {};
     if (!d.snaps) d.snaps = {};
 
+    // Whitelist lớp/môn theo phân công hiện hành (giống Code.gs): key lạ → BỎ QUA + cảnh báo
+    const lopSet = new Set<string>(), pairSet = new Set<string>();
+    for (const a of (d.assign || [])) { lopSet.add(a.lop); pairSet.add(`${a.lop}|${a.mon}`); }
+    const hasAssign = (d.assign || []).length > 0;
+    const warnings: string[] = [];
+
     const key = `${body.namHoc ?? d.namHoc ?? ""}|${body.periodMode ?? "Tuần"}|${body.periodValue ?? d.periodValue ?? ""}`;
     d.snaps[key] = d.snaps[key] ?? {};
 
-    // MERGE CHỈ các trường agent gửi (không đè cả cục) — giống pushReport cũ
+    // MERGE CHỈ các trường agent gửi (không đè cả cục)
     const snaps = body.snaps || {};
     for (const tid of Object.keys(snaps)) {
       d.snaps[key][tid] = d.snaps[key][tid] ?? {};
       for (const rid of Object.keys(snaps[tid])) d.snaps[key][tid][rid] = snaps[tid][rid];
     }
-    if (body.cls) { d.snaps[key].cls = d.snaps[key].cls ?? {}; for (const m of Object.keys(body.cls)) { d.snaps[key].cls[m] = d.snaps[key].cls[m] ?? {}; for (const lop of Object.keys(body.cls[m])) d.snaps[key].cls[m][lop] = body.cls[m][lop]; } }
-    if (body.mon) { d.snaps[key].mon = d.snaps[key].mon ?? {}; for (const k of Object.keys(body.mon)) d.snaps[key].mon[k] = body.mon[k]; }
-    if (body.num) { d.snaps[key].num = d.snaps[key].num ?? {}; for (const kind of Object.keys(body.num)) { d.snaps[key].num[kind] = d.snaps[key].num[kind] ?? {}; for (const rid of Object.keys(body.num[kind])) d.snaps[key].num[kind][rid] = body.num[kind][rid]; } }
+    if (body.cls) {
+      d.snaps[key].cls = d.snaps[key].cls ?? {};
+      for (const m of Object.keys(body.cls)) {
+        d.snaps[key].cls[m] = d.snaps[key].cls[m] ?? {};
+        for (const lop of Object.keys(body.cls[m])) {
+          if (!hasAssign || lopSet.has(lop)) d.snaps[key].cls[m][lop] = body.cls[m][lop];
+          else warnings.push(`cls lớp lạ (${m}): ${lop} → bỏ qua`);
+        }
+      }
+    }
+    if (body.mon) {
+      d.snaps[key].mon = d.snaps[key].mon ?? {};
+      for (const k of Object.keys(body.mon)) {
+        if (!hasAssign || pairSet.has(k)) d.snaps[key].mon[k] = body.mon[k];
+        else warnings.push(`mon key lạ: ${k} → bỏ qua`);
+      }
+    }
+    if (body.num) {
+      d.snaps[key].num = d.snaps[key].num ?? {};
+      for (const kind of Object.keys(body.num)) {
+        d.snaps[key].num[kind] = d.snaps[key].num[kind] ?? {};
+        for (const rid of Object.keys(body.num[kind])) d.snaps[key].num[kind][rid] = body.num[kind][rid];
+      }
+    }
     if (body.setCurrent) { d.periodMode = body.periodMode ?? d.periodMode; d.periodValue = body.periodValue ?? d.periodValue; if (body.namHoc) d.namHoc = body.namHoc; }
 
     const { error: upErr } = await sb.from("app_state")
@@ -98,10 +128,10 @@ Deno.serve(async (req) => {
 
     await sb.from("audit_log").insert({
       actor: "agent:openclaw", role: "agent", action: "agent_push",
-      target: key, summary: "OpenClaw push báo cáo cào từ link",
+      target: key, summary: "OpenClaw push báo cáo cào từ link" + (warnings.length ? ` (${warnings.length} cảnh báo)` : ""),
     });
 
-    return json({ ok: true, key });
+    return json({ ok: true, key, warnings });
   } catch (e) {
     return json({ ok: false, error: String(e) }, 500);
   }

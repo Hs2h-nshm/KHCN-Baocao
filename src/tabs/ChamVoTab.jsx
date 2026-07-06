@@ -14,7 +14,7 @@ export default function ChamVoTab() {
   const [filterMon, setFilterMon] = useState('(tất cả)')
 
   const mons = [...new Set((S.assign || []).map(a => a.mon))]
-  const assign = (S.assign || []).filter(a => !gvFilter || a.gv === gvFilter)
+  const assign = (S.assign || []).filter(a => a.gv !== 'Chưa phân công' && (!gvFilter || a.gv === gvFilter))
   const cols = filterMon === '(tất cả)' ? mons : [filterMon]
   const lops = [...new Set(assign.map(a => a.lop))].sort()
   const khois = [...new Set(lops.map(l => l[0]))].sort()

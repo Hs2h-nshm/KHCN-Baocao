@@ -13,7 +13,7 @@ export default function ClassTab() {
   const [mang, setMang] = useState('canvas')
   const [view, setView] = useState('lop')
 
-  const list = cvAssign().filter(a => !gvFilter || a.gv === gvFilter)
+  const list = cvAssign().filter(a => a.gv !== 'Chưa phân công' && (!gvFilter || a.gv === gvFilter))
   const done = list.filter(a => getCls(mang, a.lop).st === 'Đã điền').length
   const notdone = list.filter(a => ['Chưa điền', 'Điền thiếu/sai'].includes(getCls(mang, a.lop).st)).length
   const conf = list.filter(a => isConflict(mang, a.lop)).length
