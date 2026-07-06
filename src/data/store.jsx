@@ -8,6 +8,7 @@ const LS_DATA = 'khcn_v5'
 const LS_ME = 'khcn_me_v5'
 const LS_GVF = 'khcn_gvfilter_v5'
 const LS_THEME = 'khcn_theme_v5' // 'light' (mặc định) | 'dark'
+const EDITOR_ROLES = ['tp', 'tt', 'bgh'] // vai được phép sửa/lưu
 
 function loadData() {
   try {
@@ -34,8 +35,8 @@ export function StoreProvider({ children }) {
   const [me, setMeState] = useState(() => localStorage.getItem(LS_ME) || '')
   const [gvFilter, setGvFilterState] = useState(() => localStorage.getItem(LS_GVF) || '')
   const [theme, setThemeState] = useState(() => localStorage.getItem(LS_THEME) || 'light')
-  const [role, setRoleState] = useState('view') // 'view' | 'admin'
-  const [cloud, setCloud] = useState({ auto: true })
+  const [session, setSession] = useState(null)
+  const [profileRole, setProfileRole] = useState('') // '' | 'gv' | 'bgh' | 'tt' | 'tp'
 
   useEffect(() => { localStorage.setItem(LS_DATA, JSON.stringify(S)) }, [S])
   useEffect(() => { localStorage.setItem(LS_ME, me) }, [me])
