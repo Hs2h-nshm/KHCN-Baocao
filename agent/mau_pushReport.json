@@ -1,0 +1,28 @@
+{
+  "token": "KHCN-2627-doi-ma-nay",
+  "action": "pushReport",
+  "namHoc": "2026-2027",
+  "periodMode": "Tuần",
+  "periodValue": "Tuần 1 · Tháng 7",
+  "setCurrent": true,
+  "snaps": {
+    "t1": {
+      "r1": { "status": "Đủ", "note": "6A01,6A03,6B01 đã chấm" },
+      "r9": { "status": "Thiếu", "note": "thiếu 8B04" }
+    },
+    "t2": {
+      "r1": { "status": "Đã báo cáo", "note": "96%" },
+      "r12": { "status": "Cờ đỏ", "note": "khai 11 lớp nhưng log IT chỉ 10" }
+    }
+  },
+  "cls": {
+    "canvas": {
+      "6A01": { "st": "Đã điền", "note": "96%" },
+      "7A04": { "st": "Chưa điền", "note": "" }
+    },
+    "vo": {
+      "6A01": { "st": "Đã điền", "note": "" },
+      "8B04": { "st": "Điền thiếu/sai", "note": "thiếu đề cương" }
+    }
+  }
+}

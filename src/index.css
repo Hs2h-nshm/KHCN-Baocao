@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============ THEME TOKENS (Sáng mặc định · Tối tùy chọn) ============ */
+/* Giá trị là "R G B" để dùng với rgb(var(--c-x) / alpha). Đổi theme = đổi biến ở đây. */
+:root {
+  color-scheme: light;
+  --c-bg: 245 239 230;      /* kem ấm */
+  --c-panel: 255 255 255;   /* thẻ trắng */
+  --c-panel2: 240 234 223;  /* nền phụ ấm */
+  --c-line: 226 218 203;    /* viền nhạt */
+  --c-ink: 31 41 55;        /* chữ đậm (AA trên kem) */
+  --c-muted: 88 99 112;     /* chữ phụ (AA) */
+  --c-brand: 37 99 235;     /* xanh thân thiện */
+  --c-good: 21 128 61;      /* xanh lá đậm (green-700) đủ tương phản cho số KPI trên nền sáng */
+  --c-warn: 180 83 9;       /* hổ phách đậm để đủ tương phản trên nền sáng */
+  --c-bad: 220 38 38;
+  --c-violet: 124 58 237;
+  --c-chip: 236 228 214;
+  --header-grad: linear-gradient(120deg, #1d4ed8, #2456d0);
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --c-bg: 20 29 39;         /* navy ấm, dịu hơn bản cũ */
+  --c-panel: 28 40 54;
+  --c-panel2: 34 49 67;
+  --c-line: 46 64 86;
+  --c-ink: 234 242 251;
+  --c-muted: 159 180 199;
+  --c-brand: 59 130 246;
+  --c-good: 74 222 128;
+  --c-warn: 251 191 36;
+  --c-bad: 248 113 113;
+  --c-violet: 167 139 250;
+  --c-chip: 36 52 74;
+  --header-grad: linear-gradient(120deg, #1f3a5f, #243447);
+}
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: rgb(var(--c-bg));
+  color: rgb(var(--c-ink));
+  font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 15px;
+  transition: background-color .25s ease, color .25s ease;
+}
+
+/* Header đổi màu theo theme (xanh khi Sáng, navy khi Tối); chữ trong header luôn sáng */
+.app-header { background: var(--header-grad); }
+
+/* thanh cuộn gọn, theo theme */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgb(var(--c-line)); border-radius: 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+  body { transition: none; }
+}
+
+@media print {
+  .no-print { display: none !important; }
+  .app-header { background: #ffffff !important; }
+}
+
+/* Mobile: bảng cuộn ngang thay vì vỡ layout; giảm padding */
+@media (max-width: 640px) {
+  main { padding: 12px !important; }
+  .card { padding: 12px !important; }
+  table { display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; white-space: nowrap; }
+  h1 { font-size: 16px !important; }
+}
