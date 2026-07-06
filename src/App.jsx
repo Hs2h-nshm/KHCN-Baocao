@@ -60,12 +60,15 @@ export default function App() {
   const now = new Date()
 
   const doLogin = async () => {
-    setBusy(true); setLoginErr('')
+    setLoginErr('')
     try {
       await login(email, password)
-      setLoginOpen(false); setEmail(''); setPassword('')
-    } catch (e) { setLoginErr(e.message) }
-    finally { setBusy(false) }
+      setLoginOpen(false)
+      setEmail('')
+      setPassword('')
+    } catch (e) {
+      setLoginErr(e.message)
+    }
   }
 
   const addNamHoc = () => {
@@ -108,8 +111,8 @@ export default function App() {
           <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${isAdmin ? 'bg-white/25 text-white' : 'bg-white/15 text-white/90'}`}>
             {isAdmin ? (ROLE_LABEL[profileRole] || 'Quản trị') : 'Người xem'}
           </span>
-          {session
-            ? <Btn onClick={logout} title={session.user.email}>🔓 Thoát</Btn>
+          {isAdmin
+            ? <Btn onClick={logout}>🔓 Thoát</Btn>
             : <Btn onClick={() => { setEmail(''); setPassword(''); setLoginErr(''); setLoginOpen(true) }}>🔒 Đăng nhập</Btn>}
         </div>
       </header>
@@ -135,16 +138,16 @@ export default function App() {
         Trung tâm điều hành Tổ KHCN · Năm học {S.namHoc}
       </footer>
 
-      <Modal open={loginOpen} onClose={() => setLoginOpen(false)} title="🔒 Đăng nhập (BGH / Tổ trưởng / Tổ phó)">
+      <Modal open={loginOpen} onClose={() => setLoginOpen(false)} title="🔒 Đăng nhập quản trị">
         <Input type="email" value={email} autoFocus placeholder="Email"
           onChange={e => setEmail(e.target.value)}
-          className="w-full mb-2" />
+          className="w-full mb-3" />
         <Input type="password" value={password} placeholder="Mật khẩu"
           onChange={e => setPassword(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') doLogin() }}
           className="w-full mb-3" />
         <div className="flex justify-end gap-2">
           <Btn onClick={() => setLoginOpen(false)}>Hủy</Btn>
-          <Btn onClick={doLogin}>{busy ? 'Đang vào…' : 'Đăng nhập'}</Btn>
+          <Btn onClick={doLogin}>Đăng nhập</Btn>
         </div>
         {loginErr && <div className="text-bad text-sm mt-2">{loginErr}</div>}
         <div className="text-muted text-xs mt-2">Giáo viên chỉ xem thì không cần đăng nhập.</div>

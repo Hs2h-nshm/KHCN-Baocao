@@ -8,7 +8,6 @@ const LS_DATA = 'khcn_v5'
 const LS_ME = 'khcn_me_v5'
 const LS_GVF = 'khcn_gvfilter_v5'
 const LS_THEME = 'khcn_theme_v5' // 'light' (mặc định) | 'dark'
-const EDITOR_ROLES = ['tp', 'tt', 'bgh'] // vai được phép sửa/lưu
 
 function loadData() {
   try {
@@ -35,8 +34,8 @@ export function StoreProvider({ children }) {
   const [me, setMeState] = useState(() => localStorage.getItem(LS_ME) || '')
   const [gvFilter, setGvFilterState] = useState(() => localStorage.getItem(LS_GVF) || '')
   const [theme, setThemeState] = useState(() => localStorage.getItem(LS_THEME) || 'light')
-  const [session, setSession] = useState(null)
-  const [profileRole, setProfileRole] = useState('') // '' | 'gv' | 'bgh' | 'tt' | 'tp'
+  const [role, setRoleState] = useState('view') // 'view' | 'admin'
+  const [cloud, setCloud] = useState({ auto: true })
 
   useEffect(() => { localStorage.setItem(LS_DATA, JSON.stringify(S)) }, [S])
   useEffect(() => { localStorage.setItem(LS_ME, me) }, [me])
@@ -211,18 +210,32 @@ export function StoreProvider({ children }) {
     if (!supabase) throw new Error('Chưa cấu hình Supabase.')
     const { data, error } = await supabase.from('app_state').select('data, updated_at').eq('id', 1).single()
     if (error) throw new Error(error.message)
-    if (data && data.data && data.data.weekly) replaceAll(data.data)
+    if (data && data.data && data.data.weekly) {
+      replaceAll(data.data)
+      set(n => { n.baseUpdatedAt = data.updated_at })
+    }
     return data && data.updated_at ? new Date(data.updated_at).toLocaleString('vi-VN') : ''
   }
   const cloudPush = async () => {
     if (!supabase) throw new Error('Chưa cấu hình Supabase.')
     if (!session) throw new Error('Cần đăng nhập để lưu.')
     if (!isAdmin) throw new Error('Vai của bạn (' + (profileRole || 'gv') + ') không có quyền lưu.')
-    const { error } = await supabase.from('app_state')
-      .update({ data: S, updated_at: new Date().toISOString(), updated_by: session.user.email }).eq('id', 1)
+    if (!S.baseUpdatedAt) throw new Error('Chưa đồng bộ lần nào, không thể ghi đè mù mờ. Vui lòng tải dữ liệu về trước.')
+
+    const newUpdatedAt = new Date().toISOString()
+    const { data, error } = await supabase.from('app_state')
+      .update({ data: S, updated_at: newUpdatedAt, updated_by: session.user.email })
+      .eq('id', 1)
+      .eq('updated_at', S.baseUpdatedAt)
+      .select('updated_at')
+      
     if (error) throw new Error(error.message)
+    if (!data || data.length === 0) throw new Error('Dữ liệu đã bị người khác thay đổi. Vui lòng tải dữ liệu mới về trước khi lưu để tránh mất dữ liệu.')
+    
+    set(n => { n.baseUpdatedAt = newUpdatedAt })
+
     supabase.from('audit_log').insert({ actor: session.user.email, role: profileRole, action: 'save', target: 'app_state', summary: 'Lưu dữ liệu chung' }).then(() => {}, () => {})
-    return new Date().toLocaleString('vi-VN')
+    return new Date(newUpdatedAt).toLocaleString('vi-VN')
   }
 
   // Tự tải + realtime khi có Supabase. Người XEM tự cập nhật khi có thay đổi;
